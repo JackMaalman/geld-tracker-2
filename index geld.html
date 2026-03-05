@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vault — Mijn Geld</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2285%22>💎</text></svg>">
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:        #030712;
+      --surface:   #0d1117;
+      --surface2:  #161b22;
+      --border:    #21262d;
+      --border2:   #30363d;
+      --accent:    #00d4aa;
+      --accent-lo: rgba(0,212,170,0.10);
+      --accent-md: rgba(0,212,170,0.22);
+      --accent-gl: rgba(0,212,170,0.35);
+      --income:    #00d4aa;
+      --expense:   #ff6b6b;
+      --expense-lo:rgba(255,107,107,0.10);
+      --expense-md:rgba(255,107,107,0.22);
+      --violet:    #818cf8;
+      --amber:     #f59e0b;
+      --text:      #e6edf3;
+      --text2:     #8b949e;
+      --text3:     #484f58;
+      --display:   'Outfit', sans-serif;
+      --mono:      'Space Mono', monospace;
+      --radius:    12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: .35;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Ambient orbs */
+    .orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; }
+    .orb-tl { top: -15vw; left: -10vw; width: 55vw; height: 55vw;
+               background: radial-gradient(circle, rgba(0,212,170,.08) 0%, transparent 65%); }
+    .orb-br { bottom: -15vw; right: -10vw; width: 50vw; height: 50vw;
+               background: radial-gradient(circle, rgba(129,140,248,.06) 0%, transparent 65%); }
+
+    #root { position: relative; z-index: 1; }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: var(--border2); }
+    .card-glow:hover { border-color: rgba(0,212,170,.3); }
+
+    /* Inputs & selects */
+    input, select, textarea {
+      background: var(--surface2) !important;
+      border: 1px solid var(--border) !important;
+      color: var(--text) !important;
+      font-family: var(--display) !important;
+      border-radius: var(--radius-sm) !important;
+      transition: border-color .18s, box-shadow .18s !important;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none !important;
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-lo) !important;
+    }
+    input[type="number"], input[type="color"] { font-family: var(--mono) !important; }
+    input[type="color"] { padding: 3px !important; cursor: pointer; }
+    select option { background: var(--surface2); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      border: none; cursor: pointer;
+      font-family: var(--display); font-weight: 700; font-size: 13px;
+      border-radius: var(--radius-sm); padding: 10px 18px;
+      transition: all .15s ease; white-space: nowrap;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0) scale(.98); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    .btn-primary {
+      background: var(--accent); color: #000;
+      box-shadow: 0 4px 18px var(--accent-lo);
+    }
+    .btn-primary:hover { background: #00f0c4; box-shadow: 0 6px 24px var(--accent-md); }
+
+    .btn-danger {
+      background: var(--expense-lo); color: var(--expense);
+      border: 1px solid rgba(255,107,107,.25) !important;
+    }
+    .btn-danger:hover { background: var(--expense-md); }
+
+    .btn-ghost {
+      background: var(--surface2); color: var(--text2);
+      border: 1px solid var(--border) !important;
+    }
+    .btn-ghost:hover { border-color: var(--accent) !important; color: var(--accent); }
+
+    .btn-amber {
+      background: rgba(245,158,11,.15); color: var(--amber);
+      border: 1px solid rgba(245,158,11,.25) !important;
+    }
+    .btn-amber:hover { background: rgba(245,158,11,.25); }
+
+    /* Toggle pair */
+    .toggle-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .toggle-btn {
+      padding: 9px; font-size: 13px; font-weight: 700;
+      font-family: var(--display); border-radius: var(--radius-sm); cursor: pointer;
+      transition: all .15s; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--text2);
+    }
+    .toggle-btn.active-income { background: var(--accent-lo); color: var(--income); border-color: rgba(0,212,170,.4) !important; }
+    .toggle-btn.active-expense { background: var(--expense-lo); color: var(--expense); border-color: rgba(255,107,107,.4) !important; }
+    .toggle-btn:hover { border-color: var(--border2); color: var(--text); }
+
+    /* Tab bar */
+    .tab-bar {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 4px;
+    }
+    .tab {
+      padding: 7px 16px; border-radius: 7px; font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: all .15s;
+      background: none; border: none; color: var(--text2);
+      font-family: var(--display);
+    }
+    .tab:hover:not(.tab-active) { color: var(--text); background: var(--surface); }
+    .tab.tab-active { background: var(--accent); color: #000; box-shadow: 0 2px 10px var(--accent-md); }
+
+    /* Progress bar */
+    .progress { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin: 5px 0 3px; }
+    .progress-fill { height: 100%; border-radius: 2px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+    /* Tx item */
+    .tx-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 14px;
+      display: flex; justify-content: space-between; align-items: center;
+      transition: border-color .15s, background .15s;
+    }
+    .tx-item:hover { border-color: var(--border2); background: var(--surface2); }
+
+    /* Delete btn in tx */
+    .del-btn {
+      background: none; border: none; cursor: pointer; padding: 4px 6px;
+      color: var(--text3); border-radius: 5px; transition: all .15s;
+      font-size: 14px; line-height: 1;
+    }
+    .del-btn:hover { color: var(--expense); background: var(--expense-lo); }
+
+    /* KPI card */
+    .kpi { border-radius: var(--radius); padding: 18px 20px; }
+
+    /* Mono numbers */
+    .mono { font-family: var(--mono); }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp .28s ease forwards; }
+
+    /* Collapsible section */
+    .collapsible-toggle {
+      width: 100%; background: none; border: none; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      color: var(--text); font-family: var(--display); font-weight: 700; font-size: 14px;
+      padding: 0;
+    }
+
+    /* Recharts tooltip override */
+    .recharts-tooltip-wrapper .recharts-default-tooltip {
+      background: var(--surface2) !important;
+      border: 1px solid var(--border2) !important;
+      border-radius: 8px !important;
+      font-family: var(--mono) !important;
+      font-size: 12px !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .main-grid { grid-template-columns: 1fr !important; }
+      .left-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .left-col > * { }
+    }
+    @media (max-width: 600px) {
+      .left-col { grid-template-columns: 1fr !important; }
+      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-tl"></div>
+  <div class="orb orb-br"></div>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    /* ── helpers ── */
+    const fmt   = n => Math.abs(n).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtD  = d => new Date(d).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' });
+    const fmtT  = d => new Date(d).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+
+    const COLORS = ['#6366f1','#10b981','#f59e0b','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#3b82f6','#14b8a6'];
+
+    const calcBalances = (txs, potList) =>
+      potList.map(p => ({ ...p, balance: txs.filter(t => t.potId === p.id).reduce((a, t) => a + t.amount, 0) }));
+
+    /* ── sub-components ── */
+    const Icon = ({ d, size = 16, stroke = 'currentColor', fill = 'none' }) => (
+      <svg width={size} height={size} fill={fill} stroke={stroke} viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d={d}/>
+      </svg>
+    );
+
+    function PotAvatar({ pot, size = 36 }) {
+      return (
+        <div style={{ width: size, height: size, borderRadius: '50%', flexShrink: 0,
+          background: `${pot?.color || '#6366f1'}1a`,
+          border: `2px solid ${pot?.color || '#6366f1'}50`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: Math.round(size * .38), fontWeight: 700, color: pot?.color || '#6366f1' }}>
+          {(pot?.name || '?').charAt(0).toUpperCase()}
+        </div>
+      );
+    }
+
+    /* ── main app ── */
+    function App() {
+      const { LineChart, BarChart, Bar, Line, XAxis, YAxis,
+              CartesianGrid, Tooltip, ResponsiveContainer, Legend } = Recharts;
+
+      /* state */
+      const [pots, setPots] = useState(() => {
+        try { const s = localStorage.getItem('vault_pots'); return s ? JSON.parse(s) : [{ id: 'main', name: 'Hoofdpot', color: '#6366f1', balance: 0 }]; }
+        catch { return [{ id: 'main', name: 'Hoofdpot', color: '#6366f1', balance: 0 }]; }
+      });
+      const [transactions, setTransactions] = useState(() => {
+        try { const s = localStorage.getItem('vault_transactions'); return s ? JSON.parse(s) : []; }
+        catch { return []; }
+      });
+
+      /* form */
+      const [amount, setAmount]       = useState('');
+      const [isExpense, setIsExpense] = useState(false);
+      const [selPot, setSelPot]       = useState('main');
+      const [desc, setDesc]           = useState('');
+
+      /* new pot */
+      const [newName,  setNewName]  = useState('');
+      const [newColor, setNewColor] = useState('#10b981');
+
+      /* transfer */
+      const [showXfer, setShowXfer] = useState(false);
+      const [xferFrom, setXferFrom] = useState('');
+      const [xferTo,   setXferTo]   = useState('');
+      const [xferAmt,  setXferAmt]  = useState('');
+
+      /* ui */
+      const [tab,        setTab]        = useState('chart');
+      const [chartType,  setChartType]  = useState('line');
+      const [filter,     setFilter]     = useState('1Y');
+      const [search,     setSearch]     = useState('');
+      const [filterPot,  setFilterPot]  = useState('all');
+      const [filterType, setFilterType] = useState('all');
+      const [showTx,     setShowTx]     = useState(true);
+      const [showPots,   setShowPots]   = useState(true);
+      const [editingPot, setEditingPot] = useState(null); // { id, name, color }
+
+      /* persist */
+      useEffect(() => {
+        localStorage.setItem('vault_pots',         JSON.stringify(pots));
+        localStorage.setItem('vault_transactions',  JSON.stringify(transactions));
+      }, [pots, transactions]);
+
+      /* ── handlers ── */
+      const handleImport = e => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const parsed = JSON.parse(ev.target.result);
+
+            // Support both old format (array) and new format ({ __pots__, transactions })
+            const hasPotsMeta = !Array.isArray(parsed) && parsed.__pots__ && parsed.transactions;
+            const rawTx       = hasPotsMeta ? parsed.transactions : parsed;
+            const savedPots   = hasPotsMeta ? parsed.__pots__ : [];
+
+            const formatted = rawTx.map((t, i) => ({
+              id:          t.id || `${Date.now()}-${i}`,
+              date:        new Date(t.date).toISOString(),
+              amount:      t.amount,
+              potId:       t.potId || 'main',
+              description: t.description || ''
+            }));
+
+            // Start from saved pots if available, otherwise keep current
+            let basePots = savedPots.length > 0
+              ? savedPots.map(p => ({ ...p, balance: 0 }))
+              : [{ id: 'main', name: 'Hoofdpot', color: '#6366f1', balance: 0 }];
+
+            // Auto-create pots for unknown potIds
+            const knownIds   = basePots.map(p => p.id);
+            const unknownIds = [...new Set(formatted.map(t => t.potId))].filter(id => !knownIds.includes(id));
+            const extraPots  = unknownIds.map((id, i) => ({
+              id, name: `Pot ${basePots.length + i + 1}`,
+              color: COLORS[(basePots.length + i) % COLORS.length], balance: 0
+            }));
+
+            const allPots = calcBalances(formatted, [...basePots, ...extraPots]);
+            setTransactions(formatted);
+            setPots(allPots);
+          } catch (err) { alert('Fout bij laden JSON:\n' + err.message); }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      };
+
+      const handleExport = () => {
+        if (!transactions.length) { alert('Geen data om te exporteren.'); return; }
+        const exportData = {
+          __pots__: pots.map(({ id, name, color }) => ({ id, name, color })),
+          transactions
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = `geld_data_${new Date().toISOString().split('T')[0]}.json`;
+        a.click(); URL.revokeObjectURL(a.href);
+      };
+
+      const addTransaction = () => {
+        const val = parseFloat(amount.replace(',', '.'));
+        if (isNaN(val) || val === 0) return;
+        const newT = { id: Date.now().toString(), date: new Date().toISOString(),
+                       amount: isExpense ? -Math.abs(val) : Math.abs(val),
+                       potId: selPot, description: desc.trim() };
+        const newList = [...transactions, newT];
+        setTransactions(newList);
+        setPots(calcBalances(newList, pots));
+        setAmount(''); setDesc('');
+      };
+
+      const deleteTx = id => {
+        const newList = transactions.filter(t => t.id !== id);
+        setTransactions(newList);
+        setPots(calcBalances(newList, pots));
+      };
+
+      const addPot = () => {
+        if (!newName.trim()) return;
+        const pot = { id: Date.now().toString(), name: newName.trim(), color: newColor, balance: 0 };
+        setPots([...pots, pot]);
+        setNewName('');
+      };
+
+      const deletePot = potId => {
+        if (potId === 'main') return;
+        const potName = pots.find(p => p.id === potId)?.name;
+        const hasTx   = transactions.some(t => t.potId === potId);
+        if (!confirm(`"${potName}" verwijderen?${hasTx ? '\nAlle bijbehorende transacties worden ook verwijderd.' : ''}`)) return;
+        const newTx   = hasTx ? transactions.filter(t => t.potId !== potId) : transactions;
+        const newPots = pots.filter(p => p.id !== potId);
+        setTransactions(newTx);
+        setPots(calcBalances(newTx, newPots));
+      };
+
+      const savePotEdit = () => {
+        if (!editingPot || !editingPot.name.trim()) return;
+        setPots(pots.map(p => p.id === editingPot.id ? { ...p, name: editingPot.name.trim(), color: editingPot.color } : p));
+        setEditingPot(null);
+      };
+
+      const handleTransfer = () => {
+        const val = parseFloat(xferAmt.replace(',', '.'));
+        if (isNaN(val) || val <= 0 || !xferFrom || !xferTo || xferFrom === xferTo) return;
+        const fromName = pots.find(p => p.id === xferFrom)?.name;
+        const toName   = pots.find(p => p.id === xferTo)?.name;
+        const now      = new Date().toISOString();
+        const tx1 = { id: Date.now().toString(),     date: now, amount: -val,  potId: xferFrom, description: `→ naar ${toName}` };
+        const tx2 = { id: (Date.now()+1).toString(), date: now, amount:  val,  potId: xferTo,   description: `← van ${fromName}` };
+        const newList = [...transactions, tx1, tx2];
+        setTransactions(newList);
+        setPots(calcBalances(newList, pots));
+        setXferAmt(''); setShowXfer(false);
+      };
+
+      /* ── computed ── */
+      const totalBalance  = pots.reduce((a, b) => a + b.balance, 0);
+      const totalIncome   = transactions.filter(t => t.amount > 0).reduce((a, t) => a + t.amount, 0);
+      const totalExpenses = transactions.filter(t => t.amount < 0).reduce((a, t) => a + Math.abs(t.amount), 0);
+      const netChange     = totalIncome - totalExpenses;
+
+      const monthlyStats = useMemo(() => {
+        const m = {};
+        transactions.forEach(t => {
+          const k = t.date.slice(0, 7);
+          if (!m[k]) m[k] = { income: 0, expenses: 0, count: 0 };
+          if (t.amount > 0) m[k].income += t.amount; else m[k].expenses += Math.abs(t.amount);
+          m[k].count++;
+        });
+        return Object.entries(m).sort().map(([month, d]) => ({
+          month,
+          label:     new Date(month + '-15').toLocaleDateString('nl-NL', { month: 'short', year: '2-digit' }),
+          fullLabel: new Date(month + '-15').toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' }),
+          ...d, net: d.income - d.expenses
+        }));
+      }, [transactions]);
+
+      const chartData = useMemo(() => {
+        if (!transactions.length) return [];
+        const sorted   = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const balances = {}; pots.forEach(p => balances[p.name] = 0);
+        const pts = [];
+
+        let cutoff = null;
+        if (filter !== 'ALL') {
+          const now = new Date(); cutoff = new Date();
+          if (filter === '1W') cutoff.setDate(now.getDate() - 7);
+          else if (filter === '1M') cutoff.setMonth(now.getMonth() - 1);
+          else if (filter === '6M') cutoff.setMonth(now.getMonth() - 6);
+          else cutoff.setFullYear(now.getFullYear() - 1);
+        }
+
+        sorted.forEach(t => {
+          const pot = pots.find(p => p.id === t.potId);
+          if (pot) balances[pot.name] = Math.round((balances[pot.name] + t.amount) * 100) / 100;
+          if (!cutoff || new Date(t.date) >= cutoff)
+            pts.push({ dateLabel: new Date(t.date).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: filter === 'ALL' ? '2-digit' : undefined }), ...structuredClone(balances) });
+        });
+        return pts;
+      }, [transactions, filter, pots]);
+
+      const filteredTx = useMemo(() =>
+        [...transactions]
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .filter(t => {
+            if (filterPot  !== 'all' && t.potId  !== filterPot)  return false;
+            if (filterType === 'income'  && t.amount < 0) return false;
+            if (filterType === 'expense' && t.amount > 0) return false;
+            if (search) {
+              const q = search.toLowerCase();
+              const p = pots.find(p => p.id === t.potId);
+              return (t.description||'').toLowerCase().includes(q)
+                  || (p?.name||'').toLowerCase().includes(q)
+                  || fmt(t.amount).includes(q);
+            }
+            return true;
+          }),
+        [transactions, filterPot, filterType, search, pots]
+      );
+
+      const bestMonth  = monthlyStats.length ? monthlyStats.reduce((a, b) => b.net > a.net ? b : a) : null;
+      const worstMonth = monthlyStats.length ? monthlyStats.reduce((a, b) => b.net < a.net ? b : a) : null;
+
+      const ttStyle = { backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px',
+                        fontSize: '11px', fontFamily: "'Space Mono', monospace", padding: '8px 12px' };
+
+      /* ── render ── */
+      return (
+        <div style={{ padding: '28px 20px', maxWidth: '1360px', margin: '0 auto' }}>
+
+          {/* ─── HEADER ─── */}
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                           marginBottom: '28px', flexWrap: 'wrap', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ width: 46, height: 46, borderRadius: 12, fontSize: 24,
+                            background: 'linear-gradient(135deg,#00d4aa22,#818cf822)',
+                            border: '1px solid #00d4aa44',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💎</div>
+              <div>
+                <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px',
+                             background: 'linear-gradient(135deg, #e6edf3 20%, #8b949e)',
+                             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Vault</h1>
+                <p style={{ color: 'var(--text2)', fontSize: 12, marginTop: 2 }}>
+                  {transactions.length} transacties · {pots.length} potten
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
+                <Icon d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                Import JSON
+                <input type="file" style={{ display: 'none' }} onChange={handleImport} accept=".json" />
+              </label>
+              <button className="btn btn-ghost" onClick={handleExport}>
+                <Icon d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                Export JSON
+              </button>
+            </div>
+          </header>
+
+          {/* ─── KPI STRIP ─── */}
+          <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 24 }}>
+            {[
+              { lbl: 'Totaal Saldo',  val: `€ ${fmt(totalBalance)}`,  c: '#00d4aa', bg: 'rgba(0,212,170,.08)',  br: 'rgba(0,212,170,.25)' },
+              { lbl: 'Inkomsten',     val: `€ ${fmt(totalIncome)}`,   c: '#00d4aa', bg: 'rgba(0,212,170,.05)',  br: 'rgba(0,212,170,.15)' },
+              { lbl: 'Uitgaven',      val: `€ ${fmt(totalExpenses)}`, c: '#ff6b6b', bg: 'rgba(255,107,107,.05)',br: 'rgba(255,107,107,.2)' },
+              { lbl: 'Netto Resultaat',val:`${netChange>=0?'+':'-'}€ ${fmt(netChange)}`, c: netChange>=0?'#818cf8':'#f59e0b', bg:'rgba(129,140,248,.05)', br:'rgba(129,140,248,.2)' },
+              { lbl: 'Transacties',   val: transactions.length,       c: 'var(--text2)', bg:'var(--surface)',   br: 'var(--border)' },
+            ].map(k => (
+              <div key={k.lbl} className="kpi" style={{ background: k.bg, border: `1px solid ${k.br}` }}>
+                <p style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 7 }}>{k.lbl}</p>
+                <p className="mono" style={{ fontSize: 20, fontWeight: 700, color: k.c }}>{k.val}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ─── MAIN GRID ─── */}
+          <div className="main-grid" style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 18, alignItems: 'start' }}>
+
+            {/* ══ LEFT ══ */}
+            <div className="left-col" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Add Transaction */}
+              <div className="card card-glow fade-up">
+                <button className="collapsible-toggle" onClick={() => setShowTx(!showTx)}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 24, height: 24, borderRadius: 6, fontSize: 13,
+                      background: isExpense ? 'var(--expense-lo)' : 'var(--accent-lo)',
+                      color: isExpense ? 'var(--expense)' : 'var(--accent)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900 }}>
+                      {isExpense ? '−' : '+'}
+                    </span>
+                    Nieuwe Transactie
+                  </span>
+                  <span style={{ color: 'var(--text2)', fontSize: 11 }}>{showTx ? '▲' : '▼'}</span>
+                </button>
+                {showTx && (
+                  <div style={{ marginTop: 14 }} className="fade-up">
+                    <div className="toggle-pair" style={{ marginBottom: 10 }}>
+                      <button className={`toggle-btn ${!isExpense ? 'active-income' : ''}`} onClick={() => setIsExpense(false)}>+ Inkomst</button>
+                      <button className={`toggle-btn ${isExpense  ? 'active-expense' : ''}`} onClick={() => setIsExpense(true)}>− Uitgave</button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                      <select value={selPot} onChange={e => setSelPot(e.target.value)} style={{ width: '100%', padding: '9px 11px', fontSize: 13 }}>
+                        {pots.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                      <input type="number" step="0.01" placeholder="Bedrag (bijv. 5.00)" value={amount}
+                        onChange={e => setAmount(e.target.value)}
+                        onKeyPress={e => e.key === 'Enter' && addTransaction()}
+                        style={{ width: '100%', padding: '9px 11px', fontSize: 16 }} />
+                      <input type="text" placeholder="Omschrijving (optioneel)" value={desc}
+                        onChange={e => setDesc(e.target.value)}
+                        onKeyPress={e => e.key === 'Enter' && addTransaction()}
+                        style={{ width: '100%', padding: '9px 11px', fontSize: 12 }} />
+                      <button className={`btn ${isExpense ? 'btn-danger' : 'btn-primary'}`}
+                        onClick={addTransaction} style={{ width: '100%', padding: '11px', justifyContent: 'center', fontSize: 13 }}>
+                        {isExpense ? '− Uitgave boeken' : '+ Inkomst boeken'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Transfer */}
+              {pots.length >= 2 && (
+                <div className="card fade-up">
+                  <button className="collapsible-toggle" onClick={() => setShowXfer(!showXfer)}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 24, height: 24, borderRadius: 6, background: 'rgba(245,158,11,.15)', color: 'var(--amber)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>↔</span>
+                      Overboeking
+                    </span>
+                    <span style={{ color: 'var(--text2)', fontSize: 11 }}>{showXfer ? '▲' : '▼'}</span>
+                  </button>
+                  {showXfer && (
+                    <div style={{ marginTop: 13, display: 'flex', flexDirection: 'column', gap: 9 }} className="fade-up">
+                      <select value={xferFrom} onChange={e => setXferFrom(e.target.value)} style={{ width: '100%', padding: '9px 11px', fontSize: 13 }}>
+                        <option value="">Van pot...</option>
+                        {pots.map(p => <option key={p.id} value={p.id}>{p.name} (€{fmt(p.balance)})</option>)}
+                      </select>
+                      <select value={xferTo} onChange={e => setXferTo(e.target.value)} style={{ width: '100%', padding: '9px 11px', fontSize: 13 }}>
+                        <option value="">Naar pot...</option>
+                        {pots.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                      <input type="number" step="0.01" placeholder="Bedrag" value={xferAmt}
+                        onChange={e => setXferAmt(e.target.value)}
+                        style={{ width: '100%', padding: '9px 11px', fontSize: 14 }} />
+                      <button className="btn btn-amber" onClick={handleTransfer} style={{ width: '100%', justifyContent: 'center' }}>Boek over</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pots */}
+              <div className="card card-glow fade-up">
+                <button className="collapsible-toggle" onClick={() => setShowPots(!showPots)}>
+                  <span>Mijn Potten</span>
+                  <span style={{ color: 'var(--text2)', fontSize: 11 }}>{showPots ? '▲' : '▼'}</span>
+                </button>
+                {showPots && (
+                  <div style={{ marginTop: 16 }} className="fade-up">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {pots.map(p => {
+                        const pct     = totalBalance > 0 ? Math.max(0, p.balance / totalBalance * 100) : 0;
+                        const editing = editingPot?.id === p.id;
+                        return (
+                          <div key={p.id}>
+                            {editing ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 7,
+                                background: 'var(--surface2)', borderRadius: 10, padding: '10px 12px',
+                                border: `1px solid ${editingPot.color}50` }} className="fade-up">
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <input type="color" value={editingPot.color}
+                                    onChange={e => setEditingPot({...editingPot, color: e.target.value})}
+                                    style={{ width: 38, height: 34, flexShrink: 0 }} />
+                                  <input type="text" value={editingPot.name}
+                                    onChange={e => setEditingPot({...editingPot, name: e.target.value})}
+                                    onKeyPress={e => e.key === 'Enter' && savePotEdit()}
+                                    style={{ flex: 1, padding: '7px 10px', fontSize: 13 }} autoFocus />
+                                </div>
+                                <div style={{ display: 'flex', gap: 7 }}>
+                                  <button className="btn btn-primary" onClick={savePotEdit} style={{ flex: 1, padding: '7px', fontSize: 12, justifyContent: 'center' }}>✓ Opslaan</button>
+                                  <button className="btn btn-ghost" onClick={() => setEditingPot(null)} style={{ padding: '7px 12px', fontSize: 12 }}>✕</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.color, boxShadow: `0 0 8px ${p.color}70`, flexShrink: 0 }} />
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span className="mono" style={{ fontSize: 13, fontWeight: 700 }}>€{fmt(p.balance)}</span>
+                                    <button className="del-btn" onClick={() => setEditingPot({ id: p.id, name: p.name, color: p.color })}
+                                      title="Bewerk pot" style={{ fontSize: 12, padding: '2px 5px', color: 'var(--text3)' }}>✏️</button>
+                                    {p.id !== 'main' && (
+                                      <button className="del-btn" onClick={() => deletePot(p.id)} title="Verwijder pot" style={{ fontSize: 12, padding: '2px 5px' }}>✕</button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="progress">
+                                  <div className="progress-fill" style={{ width: `${pct}%`, background: `linear-gradient(90deg,${p.color},${p.color}80)` }} />
+                                </div>
+                                <p style={{ fontSize: 10, color: 'var(--text3)' }}>{pct.toFixed(1)}% van totaal</p>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                      <input type="text" placeholder="Naam nieuw potje" value={newName}
+                        onChange={e => setNewName(e.target.value)}
+                        onKeyPress={e => e.key === 'Enter' && addPot()}
+                        style={{ width: '100%', padding: '9px 11px', fontSize: 13 }} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} style={{ width: 44, height: 38, borderRadius: 8, flexShrink: 0 }} />
+                        <button className="btn btn-ghost" onClick={addPot} style={{ flex: 1, justifyContent: 'center' }}>+ Potje aanmaken</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ══ RIGHT ══ */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Tab bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                <div className="tab-bar">
+                  {[['chart','📈 Grafiek'],['history','📋 Geschiedenis'],['stats','📊 Maanden']].map(([id, lbl]) => (
+                    <button key={id} className={`tab${tab===id?' tab-active':''}`} onClick={() => setTab(id)}>{lbl}</button>
+                  ))}
+                </div>
+                {tab === 'chart' && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="tab-bar">
+                      {[['line','Lijn'],['bar','Bar']].map(([t, l]) => (
+                        <button key={t} className={`tab${chartType===t?' tab-active':''}`} onClick={() => setChartType(t)} style={{ padding: '6px 13px', fontSize: 12 }}>{l}</button>
+                      ))}
+                    </div>
+                    <div className="tab-bar">
+                      {['1W','1M','6M','1Y','ALL'].map(f => (
+                        <button key={f} className={`tab${filter===f?' tab-active':''}`} onClick={() => setFilter(f)} style={{ padding: '6px 12px', fontSize: 12 }}>{f}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── CHART TAB ── */}
+              {tab === 'chart' && (
+                <div className="card fade-up" style={{ height: 430, display: 'flex', flexDirection: 'column' }}>
+                  <h3 style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--text2)' }}>Saldoverloop per pot</h3>
+                  <div style={{ flex: 1, minHeight: 0 }}>
+                    {chartData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        {chartType === 'line' ? (
+                          <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                            <XAxis dataKey="dateLabel" stroke="var(--text3)" tick={{ fontSize: 10, fontFamily: "'Space Mono'" }} axisLine={false} tickLine={false} />
+                            <YAxis stroke="var(--text3)" tick={{ fontSize: 10, fontFamily: "'Space Mono'" }} axisLine={false} tickLine={false} tickFormatter={v=>`€${v}`} />
+                            <Tooltip contentStyle={ttStyle} />
+                            <Legend wrapperStyle={{ paddingTop: 12, fontSize: 12 }} />
+                            {pots.map(p => <Line key={p.id} type="monotone" dataKey={p.name} stroke={p.color} strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0 }} />)}
+                          </LineChart>
+                        ) : (
+                          <BarChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                            <XAxis dataKey="dateLabel" stroke="var(--text3)" tick={{ fontSize: 10, fontFamily: "'Space Mono'" }} axisLine={false} tickLine={false} />
+                            <YAxis stroke="var(--text3)" tick={{ fontSize: 10, fontFamily: "'Space Mono'" }} axisLine={false} tickLine={false} tickFormatter={v=>`€${v}`} />
+                            <Tooltip contentStyle={ttStyle} />
+                            <Legend wrapperStyle={{ paddingTop: 12, fontSize: 12 }} />
+                            {pots.map(p => <Bar key={p.id} dataKey={p.name} fill={p.color} radius={[3,3,0,0]} maxBarSize={40} />)}
+                          </BarChart>
+                        )}
+                      </ResponsiveContainer>
+                    ) : (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)', fontStyle: 'italic', fontSize: 14 }}>
+                        Nog geen data voor deze periode.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── HISTORY TAB ── */}
+              {tab === 'history' && (
+                <div className="card fade-up" style={{ display: 'flex', flexDirection: 'column', maxHeight: 620 }}>
+                  {/* filters */}
+                  <div style={{ display: 'flex', gap: 9, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <input type="text" placeholder="🔍  Zoeken op omschrijving, pot, bedrag..." value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      style={{ flex: '1 1 200px', padding: '9px 11px', fontSize: 12 }} />
+                    <select value={filterPot} onChange={e => setFilterPot(e.target.value)} style={{ padding: '9px 11px', fontSize: 12 }}>
+                      <option value="all">Alle potten</option>
+                      {pots.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '9px 11px', fontSize: 12 }}>
+                      <option value="all">Alles</option>
+                      <option value="income">Inkomsten</option>
+                      <option value="expense">Uitgaven</option>
+                    </select>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>{filteredTx.length} transacties gevonden</p>
+                  <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 7, paddingRight: 4 }}>
+                    {filteredTx.length > 0 ? filteredTx.map(t => {
+                      const pot = pots.find(p => p.id === t.potId);
+                      return (
+                        <div key={t.id} className="tx-item">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                            <PotAvatar pot={pot} size={36} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{pot?.name || 'Onbekend'}</span>
+                                <span style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtD(t.date)}</span>
+                              </div>
+                              {t.description && <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '30ch' }}>{t.description}</p>}
+                              <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>{fmtT(t.date)}</p>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                            <span className="mono" style={{ fontSize: 14, fontWeight: 700, color: t.amount >= 0 ? 'var(--income)' : 'var(--expense)' }}>
+                              {t.amount >= 0 ? '+' : '−'}€{fmt(Math.abs(t.amount))}
+                            </span>
+                            <button className="del-btn" onClick={() => deleteTx(t.id)} title="Verwijder">✕</button>
+                          </div>
+                        </div>
+                      );
+                    }) : (
+                      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)', fontStyle: 'italic', fontSize: 14 }}>
+                        Geen transacties gevonden.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── STATS TAB ── */}
+              {tab === 'stats' && (
+                <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Best / worst */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    {bestMonth && (
+                      <div className="kpi" style={{ background: 'rgba(0,212,170,.07)', border: '1px solid rgba(0,212,170,.25)' }}>
+                        <p style={{ fontSize: 10, color: 'var(--income)', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 7 }}>🏆 Beste Maand</p>
+                        <p style={{ fontSize: 17, fontWeight: 700 }}>{bestMonth.fullLabel}</p>
+                        <p className="mono" style={{ fontSize: 20, fontWeight: 700, color: 'var(--income)', marginTop: 5 }}>+€{fmt(bestMonth.net)}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>{bestMonth.count} transacties</p>
+                      </div>
+                    )}
+                    {worstMonth && (
+                      <div className="kpi" style={{ background: 'rgba(255,107,107,.07)', border: '1px solid rgba(255,107,107,.25)' }}>
+                        <p style={{ fontSize: 10, color: 'var(--expense)', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 7 }}>📉 Slechtste Maand</p>
+                        <p style={{ fontSize: 17, fontWeight: 700 }}>{worstMonth.fullLabel}</p>
+                        <p className="mono" style={{ fontSize: 20, fontWeight: 700, color: 'var(--expense)', marginTop: 5 }}>
+                          {worstMonth.net >= 0 ? '+' : '−'}€{fmt(Math.abs(worstMonth.net))}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>{worstMonth.count} transacties</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Monthly bar chart */}
+                  <div className="card" style={{ height: 280, display: 'flex', flexDirection: 'column' }}>
+                    <h3 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: 'var(--text2)' }}>Inkomsten vs Uitgaven per maand</h3>
+                    <div style={{ flex: 1, minHeight: 0 }}>
+                      {monthlyStats.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={monthlyStats} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                            <XAxis dataKey="label" stroke="var(--text3)" tick={{ fontSize: 10, fontFamily: "'Space Mono'" }} axisLine={false} tickLine={false} />
+                            <YAxis stroke="var(--text3)" tick={{ fontSize: 10, fontFamily: "'Space Mono'" }} axisLine={false} tickLine={false} tickFormatter={v=>`€${v}`} />
+                            <Tooltip contentStyle={ttStyle} />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Bar dataKey="income"   name="Inkomsten" fill="#00d4aa" radius={[3,3,0,0]} maxBarSize={30} />
+                            <Bar dataKey="expenses" name="Uitgaven"  fill="#ff6b6b" radius={[3,3,0,0]} maxBarSize={30} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)', fontSize: 14 }}>Nog geen data.</div>}
+                    </div>
+                  </div>
+
+                  {/* Monthly table */}
+                  <div className="card" style={{ display: 'flex', flexDirection: 'column', maxHeight: 340 }}>
+                    <h3 style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: 'var(--text2)' }}>Maandoverzicht</h3>
+                    <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 7, paddingRight: 4 }}>
+                      {[...monthlyStats].reverse().map(m => (
+                        <div key={m.month} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                          <div>
+                            <span style={{ fontWeight: 600, fontSize: 13 }}>{m.fullLabel}</span>
+                            <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 8 }}>{m.count} tx</span>
+                          </div>
+                          <div className="mono" style={{ display: 'flex', gap: 16, fontSize: 12, flexWrap: 'wrap' }}>
+                            <span style={{ color: 'var(--income)' }}>+€{fmt(m.income)}</span>
+                            <span style={{ color: 'var(--expense)' }}>−€{fmt(m.expenses)}</span>
+                            <span style={{ fontWeight: 700, color: m.net >= 0 ? 'var(--violet)' : 'var(--amber)' }}>
+                              {m.net >= 0 ? '+' : '−'}€{fmt(Math.abs(m.net))}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {!monthlyStats.length && (
+                        <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text2)', fontStyle: 'italic', fontSize: 14 }}>Nog geen data.</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>{/* end right */}
+          </div>{/* end main-grid */}
+
+          <p style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 11, marginTop: 32, fontFamily: 'var(--mono)' }}>
+            Vault — data opgeslagen in je browser · Gebruik Export JSON als back-up
+          </p>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
